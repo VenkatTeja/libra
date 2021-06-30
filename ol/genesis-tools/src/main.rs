@@ -1,3 +1,6 @@
+
+mod generate_genesis;
+
 use backup_cli::storage::{FileHandle, FileHandleRef};
 use serde::de::DeserializeOwned;
 use std::{fs::File};
@@ -87,6 +90,13 @@ async fn run_impl(manifest: StateSnapshotBackup) -> Result<()>{
         let blobs = read_account_state_chunk(chunk.blobs).await?;
         // let proof = load_lcs_file(&chunk.proof)?;
         println!("{:?}", blobs);
+
+        // let mut accountStateBlobs = Vec::new();
+        // for (key, value) in blobs {
+        //     accountStateBlobs.append(value);
+        // }
+        // let genesis_tnx = generate_genesis::generate_genesis_from_account_states(accountStateBlobs).unwrap();
+        // generate_genesis::write_genesis_blob(genesis_tnx);
         // TODO(Venkat) -> Here's the blob
         // println!("{:?}", proof);
 

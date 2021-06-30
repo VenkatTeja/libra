@@ -269,6 +269,15 @@ fn test_pre_genesis() {
 
     // Get state tree backup.
     let (accounts_backup, proof, root_hash) = get_state_backup(&db);
+
+    // for (_key, value) in &accounts_backup {
+    //     let refVar = value.as_ref();
+    //     let s = match std::str::from_utf8(refVar) {
+    //         Ok(v) => v,
+    //         Err(_e) => "dgffg",
+    //     };
+    //     println!("string {}", s);
+    // }
     // Restore into PRE-GENESIS state of a new empty DB.
     let tmp_dir = TempPath::new();
     let (db, db_rw) = DbReaderWriter::wrap(LibraDB::new_for_test(&tmp_dir));

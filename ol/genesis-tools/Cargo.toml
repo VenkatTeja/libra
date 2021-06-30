@@ -22,6 +22,12 @@ libradb = { path = "../../storage/libradb", version = "0.1.0", features = ["fuzz
 
 libra-config = { path = "../../config", version = "0.1.0" }
 libra-temppath = { path = "../../common/temppath", version = "0.1.0" }
+executor-test-helpers = { path = "../../execution/executor-test-helpers", version = "0.1.0" }
+libra-vm = { path = "../../language/libra-vm", version = "0.1.0" }
+move-core-types = { path = "../../language/move-core/types", version = "0.1.0" }
+libra-management = { path = "../../config/management", version = "0.1.0" }
+storage-interface = { path = "../../storage/storage-interface", version = "0.1.0", features=["fuzzing"] }
 
 [features]
 fuzzing = ["libradb/fuzzing"]
+
