@@ -63,10 +63,11 @@ impl Mnemonic {
         let mut mnemonic = Vec::with_capacity(len);
         let mut bit_writer = U11BitWriter::new(len);
         for word in &words {
-            if let Ok(idx) = WORDS.binary_search(word) {
+            if let Ok(idx) = WORDS.binary_search(&word.clone()) {
                 mnemonic.push(WORDS[idx]);
                 bit_writer.write_u11(idx as u16);
             } else {
+                println!("Mnemonic contains an unknown word: {}", word);
                 return Err(WalletError::LibraWalletGeneric(
                     "Mnemonic contains an unknown word".to_string(),
                 )

@@ -5,7 +5,7 @@
 
 use libra_config::config::NodeConfig;
 use libra_genesis_tool::config_builder::FullnodeType;
-use libra_swarm::{client, faucet, swarm::LibraSwarm};
+use libra_swarm::{client, faucet, swarm::LibraSwarm, swarm_builder_from_genesis_blob};
 use libra_temppath::TempPath;
 use libra_types::chain_id::ChainId;
 use std::path::{Path, PathBuf};
@@ -59,9 +59,9 @@ fn main() {
     let mut validator_swarm = LibraSwarm::configure_validator_swarm(
         args.libra_node.as_ref(),
         num_nodes,
-        args.config_dir.clone(),
+        Some(String::from("/home/teja9999/.0L/swarm_temp")), //args.config_dir.clone(),
         None,
-        args.genesis_blob_path
+        Some(std::path::PathBuf::from("/home/teja9999/.0L/genesis_from_snapshot.blob")) //args.genesis_blob_path
     )
     .expect("Failed to configure validator swarm");
 

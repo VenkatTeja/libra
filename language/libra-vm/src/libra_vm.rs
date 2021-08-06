@@ -621,29 +621,31 @@ pub fn txn_effects_to_writeset_and_events_cached<C: AccessPathCache>(
                     println!("UserTransaction");
                 }
             }
-        }, None => {}
-    }
-
-    for (addr, vals) in effects.resources {
-        for (struct_tag, val_opt) in vals {
-            let ap = ap_cache.get_resource_path(addr, struct_tag);
-            let op = match val_opt {
-                None => WriteOp::Deletion,
-                Some((ty_layout, val)) => {
-                    let blob = val.simple_serialize(&ty_layout).ok_or_else(|| {
-                        VMStatus::Error(StatusCode::UNKNOWN_INVARIANT_VIOLATION_ERROR)
-                    })?;
-
-                    WriteOp::Value(blob)
+        }, None => {
+            for (addr, vals) in effects.resources {
+                for (struct_tag, val_opt) in vals {
+                    let ap = ap_cache.get_resource_path(addr, struct_tag);
+                    let op = match val_opt {
+                        None => WriteOp::Deletion,
+                        Some((ty_layout, val)) => {
+                            let blob = val.simple_serialize(&ty_layout).ok_or_else(|| {
+                                VMStatus::Error(StatusCode::UNKNOWN_INVARIANT_VIOLATION_ERROR)
+                            })?;
+        
+                            WriteOp::Value(blob)
+                        }
+                    };
+                    ops.push((ap, op))
                 }
-            };
-            ops.push((ap, op))
+            }
+        
+            for (module_id, blob) in effects.modules {
+                ops.push((ap_cache.get_module_path(module_id), WriteOp::Value(blob)))
+            }
         }
     }
 
-    for (module_id, blob) in effects.modules {
-        ops.push((ap_cache.get_module_path(module_id), WriteOp::Value(blob)))
-    }
+
 
     let ws = WriteSetMut::new(ops)
         .freeze()

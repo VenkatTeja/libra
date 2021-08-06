@@ -13,6 +13,7 @@ use libra_types::{
         treasury_compliance_account_address, BalanceResource, COIN1_NAME,
         AccountResource
     },
+    validator_config::ValidatorConfigResource,
     account_state::AccountState,
     account_state_blob::AccountStateBlob,
     contract_event::ContractEvent,
@@ -34,7 +35,8 @@ use std::{convert::TryFrom, fs::File, io::Write, io::Read};
 use move_core_types::move_resource::MoveResource;
 use ol_keys::{scheme::KeyScheme, wallet::get_account_from_mnem};
 
-pub fn test_genesis_from_blob(account_state_blobs: &Vec<AccountStateBlob>, _db_rw: DbReaderWriter) -> Result<(), anyhow::Error> {
+pub fn verify_genesis_from_blob(account_state_blobs: &Vec<AccountStateBlob>, _db_rw: DbReaderWriter) -> Result<(), anyhow::Error> {
+    println!(">> Verifying the blob against account balances");
     let home = dirs::home_dir().unwrap();
     let genesis_path = home.join(".0L/genesis_from_snapshot.blob");
 
@@ -50,11 +52,12 @@ pub fn test_genesis_from_blob(account_state_blobs: &Vec<AccountStateBlob>, _db_r
         .map_err(|e| Error::UnexpectedError(format!("Unable to parse genesis: {}", e)))?;
 
     let waypoint = generate_waypoint::<LibraVM>(&db_rw, &genesis_txn).unwrap();
+    
+    println!(">> Waypoint: {}", waypoint.clone());
     assert!(maybe_bootstrap::<LibraVM>(&db_rw, &genesis_txn, waypoint).unwrap());
 
     let mut index = 0;
     for blob in account_state_blobs {
-        println!("index: {}", index);
         match get_account_details(blob) {
             Ok(details) => {
                 if get_balance(&details.0, &db_rw) != details.1.coin() {
@@ -62,7 +65,7 @@ pub fn test_genesis_from_blob(account_state_blobs: &Vec<AccountStateBlob>, _db_r
                 };
             },
             Err(e) => {
-                println!("Warning on test: get_account_details at index {}: {}", index, e)
+                println!(">>> Warning on verify: get_account_details at index {}: {}", index, e)
             }
         }
         index += 1;
@@ -84,7 +87,7 @@ pub fn write_genesis_blob(genesis_txn: Transaction) -> Result<(), anyhow::Error>
     let home = dirs::home_dir().unwrap();
     let ol_path = home.join(".0L/genesis_from_snapshot.blob");
 
-    let mut file = File::create(ol_path).map_err(|e| {
+    let mut file = File::create(ol_path.clone()).map_err(|e| {
         Error::UnexpectedError(format!("Unable to create genesis file: {}", e.to_string()))
     })?;
     let bytes = lcs::to_bytes(&genesis_txn).map_err(|e| {
@@ -93,6 +96,9 @@ pub fn write_genesis_blob(genesis_txn: Transaction) -> Result<(), anyhow::Error>
     file.write_all(&bytes).map_err(|e| {
         Error::UnexpectedError(format!("Unable to write genesis file: {}", e.to_string()))
     })?;
+    println!("\n\n========================================================================================");
+    println!("genesis written to: {}", ol_path.to_str().unwrap());
+    println!("========================================================================================\n\n");
     Ok(())
 }
 
@@ -124,6 +130,31 @@ pub fn add_account_states_to_write_set(write_set_mut: &mut WriteSetMut, account_
                                 println!("Account resource not found for index: {}", index);
                             }
                         }
+                    // } else if k.clone()==ValidatorConfigResource::resource_path() {
+                    //     let validator_config_resource_option = account_state.get_validator_config_resource()?;
+                    //     match validator_config_resource_option {
+                    //         Some(vcr) => {
+                    //             let s = String::from_utf8(vcr.human_name).unwrap();
+                    //             println!("human name: {}", s);
+                    //             match vcr.delegated_account {
+                    //                 Some(addr) => {
+                    //                     println!("delegated account address: {}", addr);
+                    //                 }, None => {
+                    //                     println!("no delegated account");
+                    //                 }
+                    //             }
+                    //             match vcr.validator_config {
+                    //                 Some(vc) => {
+                    //                     println!("consensus_public_key: {}", vc.consensus_public_key);
+                    //                 }, None => {
+                    //                     println!("No validator config");
+                    //                 }
+                    //             }
+                    //         }, None => {
+
+                    //         }
+                    //     }
+                    // } 
                     } else {
                         write_set_mut.push((
                             AccessPath::new(address, k.clone()),
@@ -131,7 +162,6 @@ pub fn add_account_states_to_write_set(write_set_mut: &mut WriteSetMut, account_
                         ));
                     }
                 }
-                println!("process account index: {}", index);
             }, None => {
                 println!("No address for error: {}", index);
             }

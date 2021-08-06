@@ -29,7 +29,7 @@ impl Node {
 
         let config_path = node_dir.join("node.yaml");
 
-        let builder = ValidatorBuilder::new(1, NodeConfig::default_for_validator(), node_dir);
+        let builder = ValidatorBuilder::new(1, NodeConfig::default_for_validator(), node_dir, None);
         let (mut configs, root_key) = builder.build_swarm()?;
         let mut config = configs.pop().unwrap();
         config.set_data_dir(node_dir.to_path_buf());

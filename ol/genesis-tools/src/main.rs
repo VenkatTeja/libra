@@ -177,7 +177,8 @@ fn create_genesis_blob(path: PathBuf) -> Result<()>{
 
     let genesis_txn = generate_genesis::generate_genesis_from_snapshot(&account_state_blobs, &db_rw).unwrap();
     generate_genesis::write_genesis_blob(genesis_txn)?;
-    generate_genesis::test_genesis_from_blob(&account_state_blobs, db_rw)?;
+    generate_genesis::verify_genesis_from_blob(&account_state_blobs, db_rw)?;
+    println!("\nGenesis blob successfully generated from snapshot");
     Ok(())
 }
 

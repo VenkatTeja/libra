@@ -34,6 +34,7 @@ fn main() {
         libra_node::load_test_environment(args.config, args.random_ports);
     } else {
         let config = NodeConfig::load(args.config.unwrap()).expect("Failed to load node config");
+        // let config = NodeConfig::load(std::path::PathBuf::from("/home/teja9999/.0L/swarm_temp/1/node.yaml")).expect("Failed to load node config");
         println!("Using node config {:?}", &config);
         libra_node::start(&config, None);
     };

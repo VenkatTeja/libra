@@ -6,3 +6,4 @@
 pub mod client;
 pub mod faucet;
 pub mod swarm;
+pub mod swarm_builder_from_genesis_blob;

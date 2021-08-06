@@ -18,7 +18,7 @@ PERSONA=alice
 endif
 
 # Eve mnemonic
-MNEM="recall october regret kite undo choice outside season business wall quit arrest vacant arrow giggle vote ghost winter hawk soft cheap decide exhaust spare"
+MNEM=recall october regret kite undo choice outside season business wall quit arrest vacant arrow giggle vote ghost winter hawk soft cheap decide exhaust spare
 
 NUM_NODES = 4
 EVE = 3DC18D1CF61FAAC6AC70E3A63F062E4B
@@ -30,6 +30,7 @@ ONBOARD_FILE= ${DATA_PATH}/account.json
 START_TEXT = "To run the Libra CLI client"
 SUCCESS_TEXT = "User transactions successfully relayed"
 
+GENESIS_FROM_SNAPSHOT_SUCCESS_TEXT = "Genesis blob successfully generated from snapshot"
 export
 
 # account.json fixtures generated with:
@@ -77,6 +78,25 @@ balance:
 balance-bob:
 	cd ${SOURCE_PATH} && cargo run -p ol -- --account 88E74DFED34420F2AD8032148280A84B --swarm-path ${SWARM_TEMP} --swarm-persona ${PERSONA} query --balance
 
+check-genesis-from-snapshot:
+	cd ${SOURCE_PATH} && cargo run -p ol-genesis-tools -- --path /home/teja9999/libra/ol/fixtures/state-snapshot/194/state_ver_74694920.0889/ &> ${LOG} &
+	@while [[ ${NOW} -le ${END} ]] ; do \
+			if grep -q ${GENESIS_FROM_SNAPSHOT_SUCCESS_TEXT} ${LOG} ; then \
+				break; \
+			else \
+				echo . ; \
+			fi ; \
+			echo "Sleeping for 5 secs" ; \
+			sleep 5 ; \
+	done
+
+check-swarm-with-custom-genesis: start-swarm-with-custom-genesis check-swarm stop
+
+check-custom-swarm-balance:
+	cd ${SOURCE_PATH} && cargo run -p ol -- --swarm-path ${SWARM_TEMP} --swarm-persona ${PERSONA} --account 4271fb7a96e4dd0aa2ac6e8122be235a query --balance
+
+start-swarm-with-custom-genesis:
+	cd ${SOURCE_PATH} && RUST_BACKTRACE=1 NODE_ENV=test TEST=y cargo run -p libra-swarm -- --libra-node ${SOURCE_PATH}/target/debug/libra-node -c ${SWARM_TEMP} -n 1 -s --cli-path ${SOURCE_PATH}/target/debug/cli --genesis-blob-path ${DATA_PATH}/genesis_from_snapshot.blob  &> ${LOG} &
 
 check-swarm: 
 	@while [[ ${NOW} -le ${END} ]] ; do \
