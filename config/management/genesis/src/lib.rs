@@ -9,8 +9,8 @@ pub mod key;  //////// 0L /////////
 pub mod layout;
 mod validator_config;
 mod validator_operator;
-mod verify;
-mod waypoint;
+pub mod verify;
+pub mod waypoint;
 //////// 0L ////////
 pub mod init;
 pub mod node_files;

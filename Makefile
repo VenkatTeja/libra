@@ -55,13 +55,14 @@ deps:
 download: web-files
 	@for b in ${RELEASE} ; do \
 		echo $$b | rev | cut -d"/" -f1 | rev ; \
-		curl  --progress-bar --create-dirs -o /usr/local/bin/$$(echo $$b | rev | cut -d"/" -f1 | rev) -L $$b ; \
-		echo 'downloaded to /usr/local/bin/' ; \
-		chmod 744 /usr/local/bin/$$(echo $$b | rev | cut -d"/" -f1 | rev) ;\
+		curl  --progress-bar --create-dirs -o ${USER_BIN_PATH}/$$(echo $$b | rev | cut -d"/" -f1 | rev) -L $$b ; \
+		echo 'downloaded to ${USER_BIN_PATH}' ; \
+		chmod 744 ${USER_BIN_PATH}/$$(echo $$b | rev | cut -d"/" -f1 | rev) ;\
 	done
 
 web-files: 
 	curl -L --progress-bar --create-dirs -o ${DATA_PATH}/web-monitor.tar.gz https://github.com/OLSF/libra/releases/latest/download/web-monitor.tar.gz
+	mkdir ${DATA_PATH}/web-monitor | true
 	tar -xf ${DATA_PATH}/web-monitor.tar.gz --directory ${DATA_PATH}/web-monitor
 
 download-release:
@@ -69,12 +70,12 @@ download-release:
 		echo $$b ; \
 		curl --create-dirs -o ${DATA_PATH}/release-${RELEASE}/$$b -L ${RELEASE_URL}/${RELEASE}/$$b ; \
 		chmod 744 ${DATA_PATH}/release-${RELEASE}/$$b ; \
-		cp ${DATA_PATH}/release-${RELEASE}/$$b  /usr/local/bin/$$b ; \
+		cp ${DATA_PATH}/release-${RELEASE}/$$b  ${USER_BIN_PATH}/$$b ; \
 	done
 
 uninstall:
 	@for b in ${BINS} ; do \
-		rm /usr/local/bin/$$b ; \
+		rm ${USER_BIN_PATH}/$$b ; \
 	done
 
 bins: stdlib
@@ -89,15 +90,47 @@ stdlib:
 	sha256sum language/stdlib/staged/stdlib.mv
   
 
-install:
-	sudo cp -f ${SOURCE}/target/release/miner ${USER_BIN_PATH}/miner
-	sudo cp -f ${SOURCE}/target/release/libra-node ${USER_BIN_PATH}/libra-node
-	sudo cp -f ${SOURCE}/target/release/db-restore ${USER_BIN_PATH}/db-restore
-	sudo cp -f ${SOURCE}/target/release/db-backup ${USER_BIN_PATH}/db-backup
-	sudo cp -f ${SOURCE}/target/release/db-backup-verify ${USER_BIN_PATH}/db-backup-verify
-	sudo cp -f ${SOURCE}/target/release/ol ${USER_BIN_PATH}/ol
-	sudo cp -f ${SOURCE}/target/release/txs ${USER_BIN_PATH}/txs
-	sudo cp -f ${SOURCE}/target/release/onboard ${USER_BIN_PATH}/onboard
+install: mv-bin bin-path
+	mkdir ${USER_BIN_PATH} | true
+
+	cp -f ${SOURCE}/target/release/miner ${USER_BIN_PATH}/miner
+	cp -f ${SOURCE}/target/release/libra-node ${USER_BIN_PATH}/libra-node
+	cp -f ${SOURCE}/target/release/db-restore ${USER_BIN_PATH}/db-restore
+	cp -f ${SOURCE}/target/release/db-backup ${USER_BIN_PATH}/db-backup
+	cp -f ${SOURCE}/target/release/db-backup-verify ${USER_BIN_PATH}/db-backup-verify
+	cp -f ${SOURCE}/target/release/ol ${USER_BIN_PATH}/ol
+	cp -f ${SOURCE}/target/release/txs ${USER_BIN_PATH}/txs
+	cp -f ${SOURCE}/target/release/onboard ${USER_BIN_PATH}/onboard
+
+bin-path:
+	@if (cat ~/.bashrc | grep '~/bin:') ; then \
+		echo "OK .bashrc correctly configured with PATH=~/bin" ; \
+	else \
+		echo -n "WARN Your .bashrc doesn't seem to have ~/bin as a search path. Append .bashrc with PATH=~/bin:$$PATH ? (y/n) " ; \
+		read answer ; \
+		if [ "$$answer" != "$${answer#[Yy]}" ] ; then \
+			echo adding to PATH ; \
+			echo PATH=~/bin:$$PATH >> ~/.bashrc ; \
+		fi ; \
+	fi
+
+mv-bin:
+	@if which ol | grep /usr/local/bin  ; then \
+		echo -n "You have executables in a deprecated location. Move the executables from /usr/local/bin to ~/bin? (y/n) " ; \
+		read answer ; \
+		if [ "$$answer" != "$${answer#[Yy]}" ] ; then \
+			echo copy all bins ; \
+			mkdir ~/bin/ | true ; \
+			mv /usr/local/bin/* ${USER_BIN_PATH} ; \
+		fi ; \
+	fi
+
+reset:
+	onboard val --skip-mining --upstream-peer http://167.172.248.37/ --source-path ~/libra
+
+
+backup:
+	cd ~ && rsync -av --exclude db/ --exclude logs/ ~/.0L ~/0L_backup_$(shell date +"%m-%d-%y")
 
 #### GENESIS BACKEND SETUP ####
 init-backend: 
@@ -106,7 +139,7 @@ init-backend:
 layout:
 	cargo run -p libra-genesis-tool --release -- set-layout \
 	--shared-backend 'backend=github;repository_owner=${REPO_ORG};repository=${REPO_NAME};token=${DATA_PATH}/github_token.txt;namespace=common' \
-	--path ./ol/util/set_layout_${NODE_ENV}.toml
+	--path ./ol/devnet/set_layout_${NODE_ENV}.toml
 
 root:
 		cargo run -p libra-genesis-tool --release -- libra-root-key \
@@ -225,24 +258,24 @@ start-full:
 
 daemon:
 # your node's custom libra-node.service lives in ~/.0L. Take the template from libra/util and edit for your needs.
-	sudo cp -f ~/.0L/libra-node.service /lib/systemd/system/
+	cp -f ~/.0L/libra-node.service /lib/systemd/system/
 
 	@if test -d ~/logs; then \
 		echo "WIPING SYSTEMD LOGS"; \
-		sudo rm -rf ~/logs*; \
+		rm -rf ~/logs*; \
 	fi 
 
-	sudo mkdir ~/logs
-	sudo touch ~/logs/node.log
-	sudo chmod 777 ~/logs
-	sudo chmod 777 ~/logs/node.log
+	mkdir ~/logs
+	touch ~/logs/node.log
+	chmod 777 ~/logs
+	chmod 777 ~/logs/node.log
 
-	sudo systemctl daemon-reload
-	sudo systemctl stop libra-node.service
-	sudo systemctl start libra-node.service
-	sudo sleep 2
-	sudo systemctl status libra-node.service &
-	sudo tail -f ~/logs/node.log
+	systemctl daemon-reload
+	systemctl stop libra-node.service
+	systemctl start libra-node.service
+	sleep 2
+	systemctl status libra-node.service &
+	tail -f ~/logs/node.log
 
 #### TEST SETUP ####
 
@@ -282,10 +315,15 @@ ifdef TEST
 	@echo NAMESPACE: ${NS}
 	@echo GENESIS: ${V}
 	@if test ! -d ${DATA_PATH}; then \
-		echo Creating Directories \
+		echo mkdir ~/.0L/ \
 		mkdir ${DATA_PATH}; \
-		mkdir -p ${DATA_PATH}/blocks/; \
 	fi
+
+	@if test ! -d ${DATA_PATH}/blocks/; then \
+		echo mkdir ~/.0L/blocks \
+		mkdir ${DATA_PATH}/blocks/; \
+	fi
+
 
 	@if test -f ${DATA_PATH}/blocks/block_0.json; then \
 		rm ${DATA_PATH}/blocks/block_0.json; \
@@ -308,6 +346,7 @@ endif
 fix-genesis:
 	cp ./ol/devnet/genesis/${V}/genesis.blob ${DATA_PATH}/
 	cp ./ol/devnet/genesis/${V}/genesis_waypoint ${DATA_PATH}/
+	cp ./ol/devnet/genesis/${V}/genesis_waypoint ${DATA_PATH}/client_waypoint
 
 
 #### HELPERS ####
@@ -348,7 +387,7 @@ wipe:
 	srm ~/.bash_history
 
 stop:
-	sudo service libra-node stop
+	service libra-node stop
 
 debug:
 	make smoke-onboard <<< $$'${MNEM}'
@@ -357,7 +396,7 @@ debug:
 ##### DEVNET TESTS #####
 
 devnet: clear fix fix-genesis dev-wizard start
-# runs a smoke test from fixtures. 
+# runs a smoke test from fixtures.
 # Uses genesis blob from fixtures, assumes 3 validators, and test settings.
 # This will work for validator nodes alice, bob, carol, and any fullnodes; 'eve'
 
@@ -375,7 +414,7 @@ dev-join: clear fix fix-genesis dev-wizard
 
 dev-wizard:
 #  REQUIRES there is a genesis.blob in the fixtures/genesis/<version> you are testing
-	MNEM='${MNEM}' cargo run -p onboard -- val --skip-mining --skip-fetch-genesis --chain-id 1 --github-org OLSF --repo dev-genesis --upstream-peer http://161.35.13.169:8080
+	MNEM='${MNEM}' cargo run -p onboard -- val --skip-mining --prebuilt-genesis ${DATA_PATH}/genesis.blob --chain-id 1 --github-org OLSF --repo dev-genesis --upstream-peer http://161.35.13.169:8080 --epoch 0 --waypoint $$(cat ${DATA_PATH}/client_waypoint)
 
 #### DEVNET INFRASTRUCTURE ####
 # usually do this on Alice, which has the dev-epoch-archive repo, and dev-genesis
@@ -405,3 +444,30 @@ clean-tags:
 	git push origin --delete ${TAG}
 	git tag -d ${TAG}
 	
+
+##### FORK TESTS #####
+
+EPOCH_HEIGHT = $(shell cargo r -p ol -- query --epoch | cut -d ":" -f 2)
+
+epoch:
+	cargo r -p ol -- query --epoch
+	echo ${EPOCH_HEIGHT}
+
+fork-backup:
+		rm -rf ${SOURCE}/ol/devnet/snapshot/*
+		cargo run -p backup-cli --bin db-backup -- one-shot backup --backup-service-address http://localhost:6186 state-snapshot --state-version ${EPOCH_HEIGHT} local-fs --dir ${SOURCE}/ol/devnet/snapshot/
+
+# Make genesis file
+fork-genesis:
+		cargo run -p ol-genesis-tools -- --genesis ${DATA_PATH}/genesis_from_snapshot.blob --snapshot ${SOURCE}/ol/devnet/snapshot/state_ver*
+# Use onboard to create all node files
+fork-config:
+	cargo run -p onboard -- fork -u http://167.172.248.37 --prebuilt-genesis ${DATA_PATH}/genesis_from_snapshot.blob
+
+# start node from files
+
+fork-start: 
+	rm -rf ~/.0L/db
+	cargo run -p libra-node -- --config ~/.0L/validator.node.yaml
+
+fork: stdlib fork-genesis fork-config fork-start
