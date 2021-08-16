@@ -5,7 +5,6 @@ use gumdrop::Options;
 use ol_genesis_tools::{fork_genesis::make_recovery_genesis, swarm_genesis::make_swarm_genesis};
 
 
-<<<<<<< HEAD
 fn get_runtime() -> (Runtime, u16) {
     let port = get_available_port();
     let path = TempPath::new();
@@ -86,7 +85,7 @@ pub fn get_account_state_blobs(path: PathBuf) -> Result<Vec<AccountStateBlob>> {
 
     txn_info_with_proof.verify(li.ledger_info(), manifest.version)?;
 
-    ensure!(
+    anyhow::ensure!(
         txn_info_with_proof.transaction_info().state_root_hash() == manifest.root_hash,
         "Root hash mismatch with that in proof. root hash: {}, expected: {}",
         manifest.root_hash,
@@ -139,10 +138,6 @@ fn create_genesis_blob(path: PathBuf) -> Result<()>{
 }
 
 fn main() -> Result<()>{
-=======
-#[tokio::main]
-async fn main() -> Result<()> {
->>>>>>> f2acec2155bb955a2eecf42293adee83d46d550b
     #[derive(Debug, Options)]
     struct Args {
         #[options(help = "what epoch to restore from archive")]

@@ -4,28 +4,19 @@ use anyhow::{Result, bail};
 use libra_management::{
    error::Error
 };
-<<<<<<< HEAD
 use libra_config::{
     config::{NodeConfig},
 };
 use libra_wallet::{Mnemonic, WalletLibrary, key_factory::{ChildNumber, ExtendedPrivKey}};
 use libra_genesis_tool::{verify::compute_genesis};
-=======
-
-
->>>>>>> f2acec2155bb955a2eecf42293adee83d46d550b
 use libra_temppath::TempPath;
 use libra_types::{
     access_path::AccessPath,
     account_address::AccountAddress,
     account_config::{
-<<<<<<< HEAD
         Credential,
         coin1_tmp_tag, from_currency_code_string,
         treasury_compliance_account_address, BalanceResource, COIN1_NAME,
-=======
-        coin1_tmp_tag, from_currency_code_string, BalanceResource, COIN1_NAME,
->>>>>>> f2acec2155bb955a2eecf42293adee83d46d550b
         AccountResource
     },
     event::{EventHandle, EventKey},
@@ -53,13 +44,8 @@ use std::{convert::TryFrom, fs::File, io::Write, io::Read};
 use move_core_types::move_resource::MoveResource;
 use ol_keys::{wallet::get_account_from_mnem};
 
-<<<<<<< HEAD
 pub fn verify_genesis_from_blob(account_state_blobs: &Vec<AccountStateBlob>, _db_rw: DbReaderWriter) -> Result<(), anyhow::Error> {
     println!(">> Verifying the blob against account balances");
-=======
-/// wrapper for testing getting a genesis from a blob.
-pub fn test_genesis_from_blob(account_state_blobs: &Vec<AccountStateBlob>, _db_rw: DbReaderWriter) -> Result<(), anyhow::Error> {
->>>>>>> f2acec2155bb955a2eecf42293adee83d46d550b
     let home = dirs::home_dir().unwrap();
     let genesis_path = home.join(".0L/genesis_from_snapshot.blob");
 

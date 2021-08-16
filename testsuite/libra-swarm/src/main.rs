@@ -63,12 +63,8 @@ fn main() {
         // Some(String::from("/home/teja9999/.0L/swarm_temp")), // VT_UNDO
         args.config_dir.clone(),
         None,
-<<<<<<< HEAD
         // Some(std::path::PathBuf::from("/home/teja9999/.0L/genesis_from_snapshot.blob")) // VT_UNDO
         args.genesis_blob_path
-=======
-        args.genesis_blob_path //////// 0L ////////
->>>>>>> f2acec2155bb955a2eecf42293adee83d46d550b
     )
     .expect("Failed to configure validator swarm");
 

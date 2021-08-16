@@ -189,14 +189,6 @@ impl<T: AsRef<Path>> ValidatorBuilder<T> {
         config
     }
 
-    fn get_genesis_tx(&self) -> Transaction {
-        let mut file = File::open("/home/teja9999/.0L/genesis.blob").unwrap();
-        let mut buffer = vec![];
-        file.read_to_end(&mut buffer).unwrap();
-        let genesis: Transaction = lcs::from_bytes(&buffer).unwrap();
-        genesis
-    }
-
     /// Operators generate genesis from shared storage and verify against waypoint.
     /// Insert the genesis/waypoint into local config.
     fn finish_validator_config(&self, index: usize, config: &mut NodeConfig, waypoint: Waypoint) {
@@ -219,14 +211,6 @@ impl<T: AsRef<Path>> ValidatorBuilder<T> {
             .insert_waypoint(&local_ns, waypoint)
             .unwrap();
 
-<<<<<<< HEAD
-        // let output = self
-        //     .storage_helper
-        //     .verify_genesis(&local_ns, genesis_path.path())
-        //     .unwrap();
-        // println!("output: {}", output);
-        // assert_eq!(output.split("match").count(), 5, "Failed to verify genesis");
-=======
         //////// 0L ////////
         // don't verify swarm's setup, if we are testing from a known genesis.blob
         if self.genesis_blob_path.is_none() {
@@ -238,7 +222,6 @@ impl<T: AsRef<Path>> ValidatorBuilder<T> {
             println!("output: {}", output);
             assert_eq!(output.split("match").count(), 5, "Failed to verify genesis");
         }
->>>>>>> f2acec2155bb955a2eecf42293adee83d46d550b
 
         config.consensus.safety_rules.service = SafetyRulesService::Thread;
         config.consensus.safety_rules.backend = self.secure_backend(&local_ns, "safety-rules");

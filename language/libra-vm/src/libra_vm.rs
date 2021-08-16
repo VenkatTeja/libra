@@ -590,56 +590,26 @@ pub fn txn_effects_to_writeset_and_events_cached<C: AccessPathCache>(
     let mut ops = vec![];
     println!("txn_effects_to_writeset_and_events_cached");
 
-    match genesis_blob_path {
-        Some(path) => {
-            let mut file = File::open(&path).unwrap();
-            let mut buffer = vec![];
-            file.read_to_end(&mut buffer).unwrap();
-            let genesis = lcs::from_bytes(&buffer).unwrap();
-            match genesis {
-                Transaction::GenesisTransaction(write_set_payload) => {
-                    match write_set_payload {
-                        WriteSetPayload::Direct(change_set) => {
-                            for write_set_item in change_set.write_set() {
-                                println!("adding user to write_set: {}", write_set_item.0);
-                                ops.push(write_set_item.clone());
-                            }
-                        },
-                        WriteSetPayload::Script{execute_as, script} => {
-                            println!("Writeset script");
-                        }
-                    }
-                }, Transaction::BlockMetadata(_data) => {
-                    println!("BlockMetadata");
-                }, Transaction::UserTransaction(_data) => {
-                    println!("UserTransaction");
+    for (addr, vals) in effects.resources {
+        for (struct_tag, val_opt) in vals {
+            let ap = ap_cache.get_resource_path(addr, struct_tag);
+            let op = match val_opt {
+                None => WriteOp::Deletion,
+                Some((ty_layout, val)) => {
+                    let blob = val.simple_serialize(&ty_layout).ok_or_else(|| {
+                        VMStatus::Error(StatusCode::UNKNOWN_INVARIANT_VIOLATION_ERROR)
+                    })?;
+
+                    WriteOp::Value(blob)
                 }
-            }
-        }, None => {
-            for (addr, vals) in effects.resources {
-                for (struct_tag, val_opt) in vals {
-                    let ap = ap_cache.get_resource_path(addr, struct_tag);
-                    let op = match val_opt {
-                        None => WriteOp::Deletion,
-                        Some((ty_layout, val)) => {
-                            let blob = val.simple_serialize(&ty_layout).ok_or_else(|| {
-                                VMStatus::Error(StatusCode::UNKNOWN_INVARIANT_VIOLATION_ERROR)
-                            })?;
-        
-                            WriteOp::Value(blob)
-                        }
-                    };
-                    ops.push((ap, op))
-                }
-            }
-        
-            for (module_id, blob) in effects.modules {
-                ops.push((ap_cache.get_module_path(module_id), WriteOp::Value(blob)))
-            }
+            };
+            ops.push((ap, op))
         }
     }
 
-
+    for (module_id, blob) in effects.modules {
+        ops.push((ap_cache.get_module_path(module_id), WriteOp::Value(blob)))
+    }
 
     let ws = WriteSetMut::new(ops)
         .freeze()
