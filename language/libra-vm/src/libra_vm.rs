@@ -26,13 +26,8 @@ use libra_types::{
     //////// 0L ////////
     block_metadata::BlockMetadata,
     upgrade_payload::UpgradePayloadResource,
-    transaction::{Transaction, WriteSetPayload}
 };
-use std::{
-    fs::File,
-    io::{Read},
-    path::PathBuf,
-};
+
 use move_core_types::{
     gas_schedule::{CostTable, GasAlgebra, GasUnits},
     identifier::IdentStr,
@@ -590,7 +585,6 @@ impl<'a> LibraVMInternals<'a> {
 pub fn txn_effects_to_writeset_and_events_cached<C: AccessPathCache>(
     ap_cache: &mut C,
     effects: TransactionEffects,
-    genesis_blob_path: Option<PathBuf>
 ) -> Result<(WriteSet, Vec<ContractEvent>), VMStatus> {
     // TODO: Cache access path computations if necessary.
     let mut ops = vec![];
@@ -701,7 +695,7 @@ pub(crate) fn get_transaction_output<A: AccessPathCache, R: RemoteCache>(
         .get();
 
     let effects = session.finish().map_err(|e| e.into_vm_status())?;
-    let (write_set, events) = txn_effects_to_writeset_and_events_cached(ap_cache, effects, None)?;
+    let (write_set, events) = txn_effects_to_writeset_and_events_cached(ap_cache, effects)?;
 
     Ok(TransactionOutput::new(
         write_set,
@@ -713,9 +707,8 @@ pub(crate) fn get_transaction_output<A: AccessPathCache, R: RemoteCache>(
 
 pub fn txn_effects_to_writeset_and_events(
     effects: TransactionEffects,
-    genesis_blob_path: Option<PathBuf>
 ) -> Result<(WriteSet, Vec<ContractEvent>), VMStatus> {
-    txn_effects_to_writeset_and_events_cached(&mut (), effects, genesis_blob_path)
+    txn_effects_to_writeset_and_events_cached(&mut (), effects)
 }
 
 pub(crate) fn get_currency_info(

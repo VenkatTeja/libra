@@ -31,11 +31,19 @@ ifndef AUTOPAY_FILE
 AUTOPAY_FILE = alice.autopay_batch.json
 endif
 
+ifeq ($(UNAME), Darwin)
+END = $(shell date -v +5M +%s)
+NOW = $(shell date -u +%s)
+else 
+END = $(shell date -ud "5 minutes" +%s)
+NOW = $(shell date -u +%s)
+endif
+
 export
 
-test: swarm check-swarm send-tx check-tx check-autopay check-transfer stop
+test: swarm check-swarm set-community send-tx check-tx  check-autopay check-transfer stop
 
-test-percent-change:
+test-percent-bal:
 	AUTOPAY_FILE=alice.autopay_batch.json make -f ${MAKE_FILE} test
 
 test-fixed-once:
@@ -60,6 +68,9 @@ init:
 tx:
 	cd ${SOURCE_PATH} && NODE_ENV=test TEST=y cargo r -p txs -- --swarm-path ${SWARM_TEMP} --swarm-persona ${PERSONA} autopay-batch -f ${SOURCE_PATH}/ol/fixtures/autopay/${AUTOPAY_FILE}
 
+set-community:
+	cd ${SOURCE_PATH} && NODE_ENV=test TEST=y cargo r -p txs -- --swarm-path ${SWARM_TEMP} --swarm-persona bob wallet -c
+
 resources:
 	cd ${SOURCE_PATH} && cargo run -p ol -- --swarm-path ${SWARM_TEMP} --swarm-persona ${PERSONA} query --resources
 
@@ -68,7 +79,6 @@ balance:
 
 balance-bob:
 	cd ${SOURCE_PATH} && cargo run -p ol -- --account 88E74DFED34420F2AD8032148280A84B --swarm-path ${SWARM_TEMP} --swarm-persona ${PERSONA} query --balance
-
 
 check-swarm: 
 	@while [[ ${NOW} -le ${END} ]] ; do \
@@ -100,7 +110,6 @@ check-tx:
 check-autopay: 
 # checks if there is any mention of BOB's account as a payee
 	PERSONA=alice make -f ${MAKE_FILE} resources | grep -e '88E74DFED34420F2AD8032148280A84B' -e 'payee'
-
 
 check-transfer:
 # swarm accounts start with a balance of 4

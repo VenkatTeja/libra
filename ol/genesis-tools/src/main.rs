@@ -1,55 +1,11 @@
-use backup_cli::storage::{FileHandle, FileHandleRef};
-use serde::de::DeserializeOwned;
-use std::path::PathBuf;
-use std::{fs::File};
+use std::{path::PathBuf, process::exit};
+use anyhow::Result;
 
-use std::io::Read;
-
-use libra_types::{
-    proof::TransactionInfoWithProof, ledger_info::LedgerInfoWithSignatures,
-    account_state_blob::AccountStateBlob
-};
-use libra_types::{
-    transaction::{
-        Transaction, WriteSetPayload
-      },
-    trusted_state::TrustedState,
-    waypoint::Waypoint,
-};
-use std::{
-    net::{IpAddr, Ipv4Addr, SocketAddr},
-    sync::Arc,
-};
-use libra_crypto::HashValue;
-use libra_config::utils::get_available_port;
-
-use backup_cli::backup_types::state_snapshot::manifest::StateSnapshotBackup;
-
-use anyhow::{Result, ensure};
-
-use tokio::{
-    fs::{OpenOptions},
-    io::{AsyncRead}
-};
-
-use libradb::LibraDB;
-use libra_temppath::TempPath;
-
-use backup_cli::utils::read_record_bytes::ReadRecordBytes;
-
-use tokio::runtime::Runtime;
-use backup_service::start_backup_service;
-
-mod generate_genesis;
-
-use storage_interface::DbReaderWriter;
-use executor::{
-    db_bootstrapper::{generate_waypoint, maybe_bootstrap},
-};
-use libra_vm::LibraVM;
 use gumdrop::Options;
+use ol_genesis_tools::{fork_genesis::make_recovery_genesis, swarm_genesis::make_swarm_genesis};
 
 
+<<<<<<< HEAD
 fn get_runtime() -> (Runtime, u16) {
     let port = get_available_port();
     let path = TempPath::new();
@@ -183,26 +139,61 @@ fn create_genesis_blob(path: PathBuf) -> Result<()>{
 }
 
 fn main() -> Result<()>{
+=======
+#[tokio::main]
+async fn main() -> Result<()> {
+>>>>>>> f2acec2155bb955a2eecf42293adee83d46d550b
     #[derive(Debug, Options)]
     struct Args {
-      #[options(help = "path to state")]
-      path: PathBuf,
+        #[options(help = "what epoch to restore from archive")]
+        epoch: Option<u64>,
+        #[options(help = "path to snapshot dir to read")]
+        snapshot: Option<PathBuf>,
+        #[options(help = "write genesis from snapshot")]
+        genesis: Option<PathBuf>,
+        #[options(help = "optional, write recovery file from snapshot")]
+        recover: Option<PathBuf>,
+        #[options(help = "optional, get baseline genesis without changes, for dubugging")]
+        debug_baseline: bool,
+        #[options(help = "live fork mode")]
+        daemon: bool,
+        #[options(help = "swarm simulation mode")]
+        swarm: bool,
     }
 
     let opts = Args::parse_args_default_or_exit();
 
-    create_genesis_blob(opts.path)
-}
+    if let Some(g_path) = opts.genesis {
+      if let Some(s_path) = opts.snapshot {
+        // create a genesis file from archive file
+        make_recovery_genesis(g_path, s_path, true).await?;
+        return Ok(())
+      } else {
+        println!("ERROR: must provide a path with --snapshot, exiting.");
+        exit(1);
+      }
 
 
-#[test]
-fn test_main() -> Result<()> {
-    use std::path::Path;
+    } else if let Some(_a_path) = opts.recover {
+      // just create recovery file
+        
+        return Ok(())
+    } else if opts.daemon {
+        // start the live fork daemon
 
-    let path = env!("CARGO_MANIFEST_DIR");
-    let buf = Path::new(path)
-        .parent()
-        .unwrap()
-        .join("fixtures/state-snapshot/194/state_ver_74694920.0889");
-        create_genesis_blob(buf)
+        return Ok(())
+    } else if opts.swarm {
+        // Write swarm genesis from snapshot, for CI and simulation
+        if let Some(archive_path) = opts.snapshot {
+          make_swarm_genesis(opts.genesis.unwrap(), archive_path).await?;
+          return Ok(())
+        } else {
+        println!("ERROR: must provide a path with --snapshot, exiting.");
+        exit(1);
+      }
+        
+    } else {
+        println!("ERROR: no options provided, exiting.");
+        exit(1);
+    }
 }
