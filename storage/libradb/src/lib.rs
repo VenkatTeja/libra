@@ -245,12 +245,14 @@ impl LibraDB {
             .ledger_store
             .get_epoch_ending_ledger_info_iter(start_epoch, paging_epoch)?
             .collect::<Result<Vec<_>>>()?;
+        println!("get_epoch_ending_ledger_infos_impl: start: {}, len: {}, limit: {}, end: {}",
+        start_epoch, lis.len(), limit, end_epoch);
         ensure!(
             lis.len() == (paging_epoch - start_epoch) as usize,
             "DB corruption: missing epoch ending ledger info for epoch {}",
             lis.last()
                 .map(|li| li.ledger_info().next_block_epoch())
-                .unwrap_or(start_epoch),
+                .unwrap_or(start_epoch)
         );
         Ok((lis, more))
     }

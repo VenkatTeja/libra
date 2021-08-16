@@ -2,6 +2,9 @@ use anyhow::{Result, bail};
 use libra_management::{
    error::Error
 };
+use libra_config::{
+    config::{NodeConfig},
+};
 use libra_wallet::{Mnemonic, WalletLibrary, key_factory::{ChildNumber, ExtendedPrivKey}};
 use libra_genesis_tool::{verify::compute_genesis};
 use libra_temppath::TempPath;
@@ -9,10 +12,12 @@ use libra_types::{
     access_path::AccessPath,
     account_address::AccountAddress,
     account_config::{
+        Credential,
         coin1_tmp_tag, from_currency_code_string,
         treasury_compliance_account_address, BalanceResource, COIN1_NAME,
         AccountResource
     },
+    event::{EventHandle, EventKey},
     validator_config::ValidatorConfigResource,
     account_state::AccountState,
     account_state_blob::AccountStateBlob,
@@ -23,6 +28,7 @@ use libra_types::{
         ChangeSet, Transaction, WriteSetPayload
     },
     write_set::{WriteOp, WriteSetMut},
+    validators_stats::{ValidatorsStatsResource, SetData}
 };
 use executor::{
     db_bootstrapper::{generate_waypoint, maybe_bootstrap, get_balance},
@@ -56,6 +62,11 @@ pub fn verify_genesis_from_blob(account_state_blobs: &Vec<AccountStateBlob>, _db
     println!(">> Waypoint: {}", waypoint.clone());
     assert!(maybe_bootstrap::<LibraVM>(&db_rw, &genesis_txn, waypoint).unwrap());
 
+    let li_with_sig = &db_rw.reader.get_latest_ledger_info().unwrap();
+    let li = li_with_sig.ledger_info();
+    anyhow::ensure!(li.epoch()==0, "Current epoch must be 0");
+    anyhow::ensure!(li.next_block_epoch()==1, "Next epoch must be 1");
+
     let mut index = 0;
     for blob in account_state_blobs {
         match get_account_details(blob) {
@@ -67,10 +78,38 @@ pub fn verify_genesis_from_blob(account_state_blobs: &Vec<AccountStateBlob>, _db
             Err(e) => {
                 println!(">>> Warning on verify: get_account_details at index {}: {}", index, e)
             }
-        }
+        }   
         index += 1;
     };
     Ok(())
+}
+
+#[test]
+pub fn test_libra_db_epoch() { // VT_UNDO
+    let path = std::path::PathBuf::from("/home/teja9999/.0L/swarm_temp/0/node.yaml");
+    let node_config = NodeConfig::load(&path).unwrap();
+    let (libra_db, db_rw) = DbReaderWriter::wrap(
+        LibraDB::open(
+            &node_config.storage.dir(),
+            false, /* readonly */
+            node_config.storage.prune_window,
+        )
+        .expect("DB should open."),
+    );
+
+    let li_with_sig = &db_rw.reader.get_latest_ledger_info().unwrap();
+    let li = li_with_sig.ledger_info();
+    println!(">> Current epoch: {}\n", li.epoch());
+
+    let bh = &libra_db.get_backup_handler();
+    let lis = &bh
+            .get_epoch_ending_ledger_info_iter(0, 100).unwrap()
+            .collect::<Result<Vec<_>>>().unwrap();
+    let x = lis.last()
+    .map(|li| li.ledger_info().next_block_epoch())
+    .unwrap_or(0);
+    println!("lis length: {}", lis.len());
+    println!("next epoch: {}", x);
 }
 
 fn get_configuration(db: &DbReaderWriter) -> ConfigurationResource {
@@ -130,31 +169,56 @@ pub fn add_account_states_to_write_set(write_set_mut: &mut WriteSetMut, account_
                                 println!("Account resource not found for index: {}", index);
                             }
                         }
-                    // } else if k.clone()==ValidatorConfigResource::resource_path() {
-                    //     let validator_config_resource_option = account_state.get_validator_config_resource()?;
-                    //     match validator_config_resource_option {
-                    //         Some(vcr) => {
-                    //             let s = String::from_utf8(vcr.human_name).unwrap();
-                    //             println!("human name: {}", s);
-                    //             match vcr.delegated_account {
-                    //                 Some(addr) => {
-                    //                     println!("delegated account address: {}", addr);
-                    //                 }, None => {
-                    //                     println!("no delegated account");
-                    //                 }
-                    //             }
-                    //             match vcr.validator_config {
-                    //                 Some(vc) => {
-                    //                     println!("consensus_public_key: {}", vc.consensus_public_key);
-                    //                 }, None => {
-                    //                     println!("No validator config");
-                    //                 }
-                    //             }
-                    //         }, None => {
+                    } else if k.clone()==ValidatorsStatsResource::resource_path() {
+                        let validator_stat_resource_option = account_state.get_validators_stats()?;
+                        match validator_stat_resource_option {
+                            Some(vsr) => {
+                                println!("ValidatorsStatsResource - Account: {}, ValidatorsStatsResource history length: {}", address.clone(), vsr.history.len());
+                                println!("Current: nAddresses: {}, props: {}, votes: {}", 
+                                    vsr.current.addr.len(), vsr.current.prop_count.len(), vsr.current.vote_count.len());
+                                let resource_new = ValidatorsStatsResource {
+                                    history: vec![],
+                                    current: vsr.current
+                                };
+                                write_set_mut.push((
+                                    AccessPath::new(address, k.clone()),
+                                    WriteOp::Value(lcs::to_bytes(&resource_new).unwrap()),
+                                ));
+                            }, None => {
 
-                    //         }
-                    //     }
-                    // } 
+                            }
+                        }
+                    } else if k.clone() == ConfigurationResource::resource_path() {
+                        let config_resource_option = account_state.get_configuration_resource()?;
+                        match config_resource_option {
+                            Some(config) => {
+                                println!("ConfigurationResource - Account: {}", address.clone());
+                                println!("Event: {:?}", config.events());
+                                let mut config_new = ConfigurationResource::default();
+                                config_new = config_new.bump_epoch_for_test();
+                                write_set_mut.push((
+                                    AccessPath::new(address, k.clone()),
+                                    WriteOp::Value(lcs::to_bytes(&config_new).unwrap()),
+                                ));
+                            }, None => {
+
+                            }
+                        }
+                    } else if k.clone() == ValidatorSet::CONFIG_ID.access_path().path {
+                        let validator_config_option = account_state.get_validator_set()?;
+                        match validator_config_option {
+                            Some(vco) => {
+                                println!("ValidatorSet");
+                                for vInfo in vco.payload() {
+                                    let config = vInfo.config();
+                                    println!("ValidatorSet - Address: {}, addr 1: {}, addr 2: {}", vInfo.account_address(), 
+                                    config.validator_network_addresses()?[0], 
+                                    config.fullnode_network_addresses()?[0]);
+                                }
+                            }, None => {
+
+                            }
+                        }
                     } else {
                         write_set_mut.push((
                             AccessPath::new(address, k.clone()),
@@ -215,7 +279,7 @@ pub fn get_account_details(blob: &AccountStateBlob) -> Result<(AccountAddress, B
                     Ok((address, BalanceResource::new(balance_resource.coin())))
                 }, 
                 None => {
-                    bail!("Balance resource not found");
+                    bail!("Balance resource not found for account: {}", address.to_string());
                 }
             }
         }, 

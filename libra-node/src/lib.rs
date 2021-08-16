@@ -284,6 +284,7 @@ pub fn setup_environment(node_config: &NodeConfig, logger: Option<Arc<Logger>>) 
         )
         .expect("DB should open."),
     );
+
     let _simple_storage_service =
         start_storage_service_with_db(&node_config, Arc::clone(&libra_db));
     let backup_service = start_backup_service(

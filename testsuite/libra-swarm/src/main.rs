@@ -59,9 +59,11 @@ fn main() {
     let mut validator_swarm = LibraSwarm::configure_validator_swarm(
         args.libra_node.as_ref(),
         num_nodes,
-        Some(String::from("/home/teja9999/.0L/swarm_temp")), //args.config_dir.clone(),
+        // Some(String::from("/home/teja9999/.0L/swarm_temp")), // VT_UNDO
+        args.config_dir.clone(),
         None,
-        Some(std::path::PathBuf::from("/home/teja9999/.0L/genesis_from_snapshot.blob")) //args.genesis_blob_path
+        // Some(std::path::PathBuf::from("/home/teja9999/.0L/genesis_from_snapshot.blob")) // VT_UNDO
+        args.genesis_blob_path
     )
     .expect("Failed to configure validator swarm");
 

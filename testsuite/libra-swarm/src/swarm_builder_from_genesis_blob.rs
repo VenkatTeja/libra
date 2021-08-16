@@ -25,6 +25,11 @@ use std::{fs::File, io::{Write, Read}, path::{Path, PathBuf},
         str::FromStr
 };
 use move_core_types::move_resource::MoveResource;
+use libradb::{LibraDB};
+use libra_vm::LibraVM;
+use executor::{
+    db_bootstrapper::{generate_waypoint, maybe_bootstrap, get_balance},
+};
 
 const LIBRA_ROOT_NS: &str = "libra_root";
 const LIBRA_ROOT_SHARED_NS: &str = "libra_root_shared";
@@ -246,18 +251,18 @@ impl<T: AsRef<Path>> ValidatorBuilderFromGenesisBlob<T> {
 
     /// Operators generate genesis from shared storage and verify against waypoint.
     /// Insert the genesis/waypoint into local config.
-    fn finish_validator_config(&self, address_string: String, config: &mut NodeConfig, waypoint: Waypoint) {
+    fn finish_validator_config(&self, address_string: String, config: &mut NodeConfig) {
         let local_ns = address_string.clone() + OPERATOR_NS;
 
         let genesis_path = TempPath::new();
         genesis_path.create_as_file().unwrap();
 
-        // let genesis = self
-        //     .storage_helper
-        //     .genesis(ChainId::test(), genesis_path.path(), &Some(self.genesis_blob_path.clone()))
-        //     .unwrap();
-
         let genesis = self.get_genesis_tx();
+
+        let db_dir_tmp = TempPath::new();
+        let (_db, db_rw) = storage_interface::DbReaderWriter::wrap(LibraDB::new_for_test(&db_dir_tmp));
+
+        let waypoint = generate_waypoint::<LibraVM>(&db_rw, &genesis).unwrap();
 
         self.storage_helper
             .insert_waypoint(&local_ns, waypoint)
@@ -310,14 +315,9 @@ impl<T: AsRef<Path>> BuildSwarm for ValidatorBuilderFromGenesisBlob<T> {
             configs.push(config);
         }
 
-        let waypoint = Waypoint::from_str("0:8ae1a4fe76662eb6e14a83d831ba7f7fee9b43eb9bb80bdf6e9f9a6c4b986906").unwrap();
-        // let waypoint = self
-        //     .storage_helper
-        //     .create_waypoint(ChainId::test(), &Some(self.genesis_blob_path.clone()))
-        //     .unwrap();
         // Create genesis and waypoint
         for (i, config) in configs.iter_mut().enumerate() {
-            self.finish_validator_config(operators[i].clone(), config, waypoint);
+            self.finish_validator_config(operators[i].clone(), config);
         }
 
         Ok((configs, libra_root_key))

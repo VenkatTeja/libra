@@ -388,7 +388,7 @@ impl LibraSwarm {
             ::std::thread::sleep(::std::time::Duration::from_millis(1000));
         }
         Ok(())
-        // Err(SwarmLaunchFailure::ConnectivityTimeout)
+        // Err(SwarmLaunchFailure::ConnectivityTimeout) // VT_UNDO
     }
 
     fn wait_for_startup(&mut self) -> Result<(), SwarmLaunchFailure> {
