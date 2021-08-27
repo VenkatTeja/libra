@@ -287,21 +287,21 @@ pub fn add_account_states_to_write_set(write_set_mut: &mut WriteSetMut, account_
 
                             }
                         }
-                    } else if k.clone() == ValidatorSet::CONFIG_ID.access_path().path {
-                        let vs_option = account_state.get_validator_set()?;
-                        match vs_option {
-                            Some(vs) => {
-                                for item in vs.payload() {
-                                    let config = item.config();
-                                    let fnet = config.fullnode_network_addresses()?;
-                                    println!("Addr: {}, len: {}", fnet[0], fnet.len());
-                                }
-                            }, None => {
+                    // } else if k.clone() == ValidatorSet::CONFIG_ID.access_path().path {
+                    //     let vs_option = account_state.get_validator_set()?;
+                    //     match vs_option {
+                    //         Some(vs) => {
+                    //             for item in vs.payload() {
+                    //                 let config = item.config();
+                    //                 let fnet = config.fullnode_network_addresses()?;
+                    //                 println!("Addr: {}, len: {}", fnet[0], fnet.len());
+                    //             }
+                    //         }, None => {
 
-                            }
-                        }
-                    } else {
+                    //         }
+                    //     }
                     // } else {
+                    } else {
                         // TODO: why would this happen?
                         write_set_mut.push((
                             AccessPath::new(address, k.clone()),
