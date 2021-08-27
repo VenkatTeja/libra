@@ -1,9 +1,46 @@
 use std::{path::PathBuf, process::exit};
-use anyhow::Result;
 
 use gumdrop::Options;
-use ol_genesis_tools::{fork_genesis::make_recovery_genesis, swarm_genesis::make_swarm_genesis};
+use ol_genesis_tools::{fork_genesis::make_recovery_genesis, swarm_genesis::make_swarm_genesis, generate_genesis};
 
+use backup_cli::storage::{FileHandle, FileHandleRef};
+use serde::de::DeserializeOwned;
+use std::{fs::File};
+
+use std::io::Read;
+
+use libra_types::{
+    proof::TransactionInfoWithProof, ledger_info::LedgerInfoWithSignatures,
+    account_state_blob::AccountStateBlob,
+    trusted_state::TrustedState,
+    waypoint::Waypoint,
+    transaction::{ChangeSet, Transaction, WriteSetPayload},
+};
+use storage_interface::{DbReader, DbReaderWriter};
+use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    sync::Arc,
+};
+use libra_crypto::HashValue;
+use libra_config::utils::get_available_port;
+use libra_vm::LibraVM;
+use backup_cli::backup_types::state_snapshot::manifest::StateSnapshotBackup;
+
+use anyhow::{ensure, Result};
+
+use tokio::{
+    fs::{OpenOptions},
+    io::{AsyncRead}
+};
+use executor::db_bootstrapper::{maybe_bootstrap, generate_waypoint};
+
+use libradb::LibraDB;
+use libra_temppath::TempPath;
+
+use backup_cli::utils::read_record_bytes::ReadRecordBytes;
+
+use tokio::runtime::Runtime;
+use backup_service::start_backup_service;
 
 fn get_runtime() -> (Runtime, u16) {
     let port = get_available_port();
@@ -161,7 +198,9 @@ fn main() -> Result<()>{
     if let Some(g_path) = opts.genesis {
       if let Some(s_path) = opts.snapshot {
         // create a genesis file from archive file
-        make_recovery_genesis(g_path, s_path, true).await?;
+        let (mut rt, _port) = get_runtime();
+        let future = make_recovery_genesis(g_path, s_path, true);
+        rt.block_on(future).unwrap();
         return Ok(())
       } else {
         println!("ERROR: must provide a path with --snapshot, exiting.");
@@ -180,8 +219,10 @@ fn main() -> Result<()>{
     } else if opts.swarm {
         // Write swarm genesis from snapshot, for CI and simulation
         if let Some(archive_path) = opts.snapshot {
-          make_swarm_genesis(opts.genesis.unwrap(), archive_path).await?;
-          return Ok(())
+            let (mut rt, _port) = get_runtime();
+            let future = make_swarm_genesis(opts.genesis.unwrap(), archive_path);
+            rt.block_on(future)?;
+            return Ok(())
         } else {
         println!("ERROR: must provide a path with --snapshot, exiting.");
         exit(1);

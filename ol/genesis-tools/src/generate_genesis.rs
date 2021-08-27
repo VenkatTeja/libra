@@ -30,7 +30,8 @@ use libra_types::{
         ChangeSet, Transaction, WriteSetPayload
     },
     write_set::{WriteOp, WriteSetMut},
-    validators_stats::{ValidatorsStatsResource, SetData}
+    validators_stats::{ValidatorsStatsResource, SetData},
+    move_resource::MoveStorage
 };
 use executor::{
     db_bootstrapper::{generate_waypoint, maybe_bootstrap, get_balance},
@@ -69,6 +70,8 @@ pub fn verify_genesis_from_blob(account_state_blobs: &Vec<AccountStateBlob>, _db
     let li = li_with_sig.ledger_info();
     anyhow::ensure!(li.epoch()==0, "Current epoch must be 0");
     anyhow::ensure!(li.next_block_epoch()==1, "Next epoch must be 1");
+
+    fetch_chain_id(&db_rw);
 
     let mut index = 0;
     for blob in account_state_blobs {
@@ -113,6 +116,31 @@ pub fn test_libra_db_epoch() { // VT_UNDO
     .unwrap_or(0);
     println!("lis length: {}", lis.len());
     println!("next epoch: {}", x);
+}
+
+fn fetch_chain_id(db: &DbReaderWriter) {
+    let blob = db
+        .reader
+        .get_account_state_with_proof_by_version(
+            libra_root_address(),
+            (&*db.reader)
+                .fetch_synced_version()
+                .expect("[libra-node] failed fetching synced version."),
+        )
+        .expect("[libra-node] failed to get Libra root address account state")
+        .0
+        .expect("[libra-node] missing Libra root address account state");
+    AccountState::try_from(&blob)
+        .expect("[libra-node] failed to convert blob to account state")
+        .get_chain_id_resource()
+        .expect("[libra-node] failed to get chain ID resource")
+        .expect("[libra-node] missing chain ID resource")
+        .chain_id();
+}
+
+pub fn libra_root_address() -> AccountAddress {
+    AccountAddress::from_hex_literal("0x0") //////// 0L ////////
+        .expect("Parsing valid hex literal should always succeed")
 }
 
 fn get_configuration(db: &DbReaderWriter) -> ConfigurationResource {
@@ -260,21 +288,20 @@ pub fn add_account_states_to_write_set(write_set_mut: &mut WriteSetMut, account_
                             }
                         }
                     } else if k.clone() == ValidatorSet::CONFIG_ID.access_path().path {
-                        let validator_config_option = account_state.get_validator_set()?;
-                        match validator_config_option {
-                            Some(vco) => {
-                                println!("ValidatorSet");
-                                for vInfo in vco.payload() {
-                                    let config = vInfo.config();
-                                    println!("ValidatorSet - Address: {}, addr 1: {}, addr 2: {}", vInfo.account_address(), 
-                                    config.validator_network_addresses()?[0], 
-                                    config.fullnode_network_addresses()?[0]);
+                        let vs_option = account_state.get_validator_set()?;
+                        match vs_option {
+                            Some(vs) => {
+                                for item in vs.payload() {
+                                    let config = item.config();
+                                    let fnet = config.fullnode_network_addresses()?;
+                                    println!("Addr: {}, len: {}", fnet[0], fnet.len());
                                 }
                             }, None => {
 
                             }
                         }
                     } else {
+                    // } else {
                         // TODO: why would this happen?
                         write_set_mut.push((
                             AccessPath::new(address, k.clone()),
